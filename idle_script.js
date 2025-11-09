@@ -72,7 +72,7 @@ function affichHome() {
   renderPage(`
     <div class="home-container">
       <img 
-        src="../Banner/DnD Banner.png"
+        src="Banner/DnD Banner.png"
         alt="D&D Banner" 
         class="home-banner"
       >
@@ -562,4 +562,5 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
