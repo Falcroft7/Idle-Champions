@@ -155,7 +155,7 @@ function affichAffiliationList() {
       ${affiliationsUniques.map(nom => `
         <div class="affiliation-card" data-name="${nom}">
           ${nom !== "Aucun" ? `
-            <img src="Images/Affiliations/${normalizeString(nom)}.png" alt="${nom}" class="affiliation-logo">
+            <img src="Affiliations/${normalizeString(nom)}.png" alt="${nom}" class="affiliation-logo">
           ` : `
             <div class="affiliation-logo affiliation-logo-placeholder"></div>
           `}
@@ -562,6 +562,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
