@@ -550,8 +550,8 @@ Papa.parse(csvUrl, {
 
     listePersos = Object.values(merged).map(p => {
         // Si pas d'image définie, on cherche dans le dossier Champions avec le Nom exact
-        if (!p.Image) {
-            p.Image = `Champions/${p.Nom}.jpg`; 
+        if (!p.Image) {const normalizedName = normalizeString(p.Nom); 
+          p.Image = `Champions/${normalizedName}.jpg`;
         }
         return p;
     });
@@ -571,6 +571,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
