@@ -550,8 +550,7 @@ Papa.parse(csvUrl, {
 
     listePersos = Object.values(merged).map(p => {
         if (!p.Image) {
-           const normalizedName = normalizeString(p.Nom);
-           p.Image = `Champions/${normalizedName}.jpg`;
+           p.Image = `Champions/${p.Nom.trim()}.jpg`;
         }
         return p;
     });
@@ -571,14 +570,3 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
-
-
-
-
-
-
-
-
-
-
-
