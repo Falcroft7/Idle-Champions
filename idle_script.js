@@ -12,23 +12,21 @@ let listeClasses = [];
 let listeRoles = [];
 let currentPage = 1;
 
-// Images patrons — ajuste les chemins si nécessaire (relatifs à la page HTML)
+const PATRONS = ["Mirt", "Vajra", "Strahd", "Zariel", "Elminster"];
 const imagesPatrons = {
-  Mirt: "Images/Patrons/Mirt.jfif",
-  Vajra: "Images/Patrons/Vajra.jfif",
-  Strahd: "Images/Patrons/Strahd.jfif",
-  Zariel: "Images/Patrons/Zariel.jfif",
-  Elminster: "Images/Patrons/Elminster.jfif",
+  Mirt: "Patrons/Mirt.jfif",
+  Vajra: "Patrons/Vajra.jfif",
+  Strahd: "Patrons/Strahd.jfif",
+  Zariel: "Patrons/Zariel.jfif",
+  Elminster: "Patrons/Elminster.jfif",
 };
 
-// Sections (garde uniquement ce qui sert à présenter)
 const sectionsFiche = [
   { title: "Général", fields: ["Banc", "Origine"] },
   { title: "Identité", fields: ["Genre", "Espèce", "Age"] },
   { title: "Classe & Rôle", fields: ["Classe", "Alignement", "Rôles", "Rôles secondaires", "Affiliation", "Accablement"] },
   { title: "Caractéristiques", fields: ["Force", "Dextérité", "Constitution", "Intelligence", "Sagesse", "Charisme", "Total"] },
   { title: "Attaque", fields: ["Type Attaque", "Type Ultime"] },
-  // "Patrons" est géré via dispoPatrons()
 ];
 
 // ===================== UTILITAIRES =====================
@@ -59,7 +57,6 @@ function renderPage(htmlContent) {
   requestAnimationFrame(() => tempDiv.classList.add("active"));
 }
 
-// Attache un listener click aux éléments ayant data-name
 function attachNameClickListeners(selector, handler) {
   document.querySelectorAll(selector).forEach(el => {
     el.addEventListener("click", () => {
@@ -69,7 +66,6 @@ function attachNameClickListeners(selector, handler) {
   });
 }
 
-// Génère l'URL d'image : si p.Image fourni -> on l'utilise, sinon on génère `Champions/{normalized}.jpg`
 function imageFor(p) {
   if (!p) return "Champions/default.jpg";
   if (p.Image && p.Image.trim()) return p.Image.trim();
@@ -169,7 +165,6 @@ function renderFilters() {
   `;
 }
 
-// Attach change/input handlers to filters after rendering
 function attachFilterHandlers() {
   ["bancSelect", "classeSelect", "roleSelect", "sortSelect"].forEach(id => {
     const el = document.getElementById(id);
@@ -291,13 +286,10 @@ function affichAffiliationByName(name) {
 
   document.getElementById("back-aff").addEventListener("click", (e) => { e.preventDefault(); affichAffiliationList(); });
 
-  // montre les champions liés à l'affiliation
   showLinkedChampions("#linked-champions", champion => champion.Affiliation === name);
 }
 
-// ===================== PATRONS & CHAMPIONS LIÉS (fonction générique) =====================
-// containerSelector : id or selector where cards will be appended
-// filterFn: function(champion) => boolean
+// ===================== CHAMPIONS LIÉS =====================
 function showLinkedChampions(containerSelector, filterFn) {
   const container = document.querySelector(containerSelector);
   if (!container) return;
@@ -331,7 +323,6 @@ function showLinkedChampions(containerSelector, filterFn) {
     container.appendChild(card);
   });
 
-  // attacher listener (clic ouvre la fiche)
   attachNameClickListeners(`${containerSelector} .linked-card`, name => affichPersoByName(name));
 }
 
@@ -388,7 +379,6 @@ function affichPatron(patron) {
 
   document.getElementById("back-patron").addEventListener("click", (e) => { e.preventDefault(); affichPatronsList(); });
 
-  // champs liés selon patron (colonne boolean TRUE)
   showLinkedChampions("#linked-champions", champ => champ[patron.Nom] && champ[patron.Nom].toUpperCase() === "TRUE");
 }
 
@@ -456,33 +446,33 @@ function affichSectionFields(item, fields, inline = false) {
   }).join("");
 }
 
-function createPatronsColumn(item, keys) {
+function createPatronsColumn(perso, keys) {
   return keys.map(k => {
-    if (!item[k]) return "";
-    const icon = item[k].toUpperCase() === "TRUE" ? "🟢" : "⚪";
-    const imgSrc = imagesPatrons[k] || "";
-    return `
-      <div class="patron-item">
-        ${imgSrc ? `<img src="${imgSrc}" alt="${k}" class="patron-icon" data-name="${k}" onerror="this.onerror=null;this.style.display='none'">` : `<div class="patron-icon-placeholder"></div>`}
-        ${icon}
-      </div>
-    `;
-  }).join("");
+      const hasPatron = perso[k] && perso[k].toUpperCase() === "TRUE";
+      return `
+        <div class="patrons-row">
+          <img src="${imagesPatrons[k]}" alt="${k}" class="patron-icon"
+               onclick="affichPatronByName('${k}')">
+          <span>${hasPatron ? "🟢" : "⚪"}</span>
+        </div>
+      `;
+    })
+    .join("");
 }
 
-function dispoPatrons(item) {
-  // deux colonnes (tu peux ajuster keys si tu veux un autre ordre)
+function dispoPatrons(perso) {
+  const col1 = ["Mirt", "Vajra", "Strahd"];
+  const col2 = ["Zariel", "Elminster"];
+
   return `
     <div class="patrons-container">
-      <div class="patrons-column">${createPatronsColumn(item, ["Mirt","Vajra","Strahd"])}</div>
-      <div class="patrons-column">${createPatronsColumn(item, ["Zariel","Elminster"])}</div>
+      <div class="patrons-column">${createPatronsColumn(perso, col1)}</div>
+      <div class="patrons-column">${createPatronsColumn(perso, col2)}</div>
     </div>
   `;
 }
 
-// Attache listeners sur icônes patrons (ouvrir la fiche du patron)
 function attachPatronIconListeners() {
-  // icônes ont data-name (créées dans createPatronsColumn) : on utilise event delegation au parent #app
   document.getElementById("app").addEventListener("click", (e) => {
     const target = e.target;
     if (target && target.classList.contains("patron-icon") && target.dataset.name) {
@@ -532,10 +522,8 @@ Papa.parse(CSV_URL, {
     listeClasses = [...new Set(listePersos.flatMap(p => (p.Classe || "").split(',').map(c => c.trim()).filter(Boolean)))].sort();
     listeRoles = [...new Set(listePersos.flatMap(p => (p.Rôles || "").split(',').map(r => r.trim()).filter(Boolean)))].sort();
 
-    // on attache le listener global pour les icônes patrons (détection dynamique)
     attachPatronIconListeners();
 
-    // affiche l'accueil
     affichHome();
   }
 });
@@ -547,3 +535,4 @@ Papa.parse(CSV_URL_PATRONS, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
