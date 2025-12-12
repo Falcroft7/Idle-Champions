@@ -35,7 +35,10 @@ const sectionsFiche = [
 
 // ===================== UTILITAIRES =====================
 function normalizeString(str) {
-  return str?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || "";
+  return str?.toLowerCase()
+             .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+             .replace(/[\s.-]/g, "") // Supprime les espaces, les points et les tirets
+             || "";
 }
 
 function getCurrentFilters() {
@@ -568,6 +571,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
