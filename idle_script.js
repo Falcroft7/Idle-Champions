@@ -545,7 +545,13 @@ Papa.parse(csvUrl, {
         }
       });
 
-    listePersos = Object.values(merged);
+    listePersos = Object.values(merged).map(p => {
+        // Si pas d'image définie, on cherche dans le dossier Champions avec le Nom exact
+        if (!p.Image) {
+            p.Image = `Champions/${p.Nom}.png`; 
+        }
+        return p;
+    });
     
     listeBancs = [...new Set(listePersos.map(p => p.Banc).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
     listeClasses = [...new Set(listePersos.flatMap(p => (p.Classe || "").split(',').map(c => c.trim()).filter(Boolean)))].sort();
@@ -562,6 +568,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
