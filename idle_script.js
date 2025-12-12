@@ -86,7 +86,7 @@ function affichHome() {
         <button onclick="affichListe()">Champions</button>
         <button onclick="affichAffiliationList()">Affiliations</button>
         <button onclick="affichPatronsList()">Patrons</button>
-        <button onclick="affichSynergies()">Synergies</button>
+        <button onclick="alert('En développement')">Synergies</button>
       </div>
     </div>
   `);
@@ -562,6 +562,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
