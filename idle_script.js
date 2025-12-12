@@ -1,44 +1,42 @@
 // ===================== CONSTANTES =====================
-const csvUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRd-Z9L00gE2wnlhgD1LSlSyNDo2dej3UcX_-UtnN2NBrV8tzHxib_Mxx28d3k9CoWjzhQUxcQjK7TA/pub?output=csv";
-const csvUrlPatrons = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRd-Z9L00gE2wnlhgD1LSlSyNDo2dej3UcX_-UtnN2NBrV8tzHxib_Mxx28d3k9CoWjzhQUxcQjK7TA/pub?gid=1864789699&single=true&output=csv";
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRd-Z9L00gE2wnlhgD1LSlSyNDo2dej3UcX_-UtnN2NBrV8tzHxib_Mxx28d3k9CoWjzhQUxcQjK7TA/pub?output=csv";
+const CSV_URL_PATRONS = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRd-Z9L00gE2wnlhgD1LSlSyNDo2dej3UcX_-UtnN2NBrV8tzHxib_Mxx28d3k9CoWjzhQUxcQjK7TA/pub?gid=1864789699&single=true&output=csv";
 
-// ===================== VARIABLES GLOBALES =====================
+const ITEMS_PER_PAGE = 30;
+
+// ===================== ÉTAT GLOBAL =====================
 let listePersos = [];
 let listePatrons = [];
 let listeBancs = [];
 let listeClasses = [];
 let listeRoles = [];
-let headersOrder = [];
-
-// Pagination
 let currentPage = 1;
-const itemsPerPage = 30;
 
-// Images patrons
+// Images patrons — ajuste les chemins si nécessaire (relatifs à la page HTML)
 const imagesPatrons = {
-  "Mirt": "../Images/Patrons/Mirt.jfif",
-  "Vajra": "../Images/Patrons/Vajra.jfif",
-  "Strahd": "../Images/Patrons/Strahd.jfif",
-  "Zariel": "../Images/Patrons/Zariel.jfif",
-  "Elminster": "../Images/Patrons/Elminster.jfif",
+  Mirt: "Images/Patrons/Mirt.jfif",
+  Vajra: "Images/Patrons/Vajra.jfif",
+  Strahd: "Images/Patrons/Strahd.jfif",
+  Zariel: "Images/Patrons/Zariel.jfif",
+  Elminster: "Images/Patrons/Elminster.jfif",
 };
 
-// Sections fiche
+// Sections (garde uniquement ce qui sert à présenter)
 const sectionsFiche = [
   { title: "Général", fields: ["Banc", "Origine"] },
   { title: "Identité", fields: ["Genre", "Espèce", "Age"] },
   { title: "Classe & Rôle", fields: ["Classe", "Alignement", "Rôles", "Rôles secondaires", "Affiliation", "Accablement"] },
   { title: "Caractéristiques", fields: ["Force", "Dextérité", "Constitution", "Intelligence", "Sagesse", "Charisme", "Total"] },
   { title: "Attaque", fields: ["Type Attaque", "Type Ultime"] },
-  { title: "Patrons", fields: Object.keys(imagesPatrons) }
+  // "Patrons" est géré via dispoPatrons()
 ];
 
 // ===================== UTILITAIRES =====================
 function normalizeString(str) {
-  return str?.toLowerCase()
-             .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-             .replace(/[\s.-]/g, "") // Supprime les espaces, les points et les tirets
-             || "";
+  return (str || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[\s.-]/g, "");
 }
 
 function getCurrentFilters() {
@@ -51,34 +49,39 @@ function getCurrentFilters() {
   };
 }
 
-function getFields(sectionTitle) {
-  return sectionsFiche.find(s => s.title === sectionTitle)?.fields || [];
-}
-
 function renderPage(htmlContent) {
   const app = document.getElementById("app");
-
   const tempDiv = document.createElement("div");
   tempDiv.className = "page-transition";
   tempDiv.innerHTML = htmlContent;
-
   app.innerHTML = "";
   app.appendChild(tempDiv);
+  requestAnimationFrame(() => tempDiv.classList.add("active"));
+}
 
-  requestAnimationFrame(() => {
-    tempDiv.classList.add("active");
+// Attache un listener click aux éléments ayant data-name
+function attachNameClickListeners(selector, handler) {
+  document.querySelectorAll(selector).forEach(el => {
+    el.addEventListener("click", () => {
+      const name = el.dataset.name;
+      if (name) handler(name);
+    });
   });
+}
+
+// Génère l'URL d'image : si p.Image fourni -> on l'utilise, sinon on génère `Champions/{normalized}.jpg`
+function imageFor(p) {
+  if (!p) return "Champions/default.jpg";
+  if (p.Image && p.Image.trim()) return p.Image.trim();
+  const normalized = normalizeString(p.Nom || "");
+  return `Champions/${normalized}.jpg`;
 }
 
 // ===================== PAGE D'ACCUEIL =====================
 function affichHome() {
   renderPage(`
     <div class="home-container">
-      <img 
-        src="Banner/dnd-banner.png"
-        alt="D&D Banner" 
-        class="home-banner"
-      >
+      <img src="Banner/dnd-banner.png" alt="D&D Banner" class="home-banner">
       <h1>D&D - Idle Champions</h1>
       <p class="home-intro">
         Salutations, héros en herbe !<br>
@@ -86,206 +89,52 @@ function affichHome() {
         Appuyez sur un bouton pour plonger dans l’aventure !
       </p>
       <div class="home-buttons">
-        <button onclick="affichListe()">Champions</button>
-        <button onclick="affichAffiliationList()">Affiliations</button>
-        <button onclick="affichPatronsList()">Patrons</button>
-        <button onclick="alert('En développement')">Synergies</button>
+        <button id="btn-champions">Champions</button>
+        <button id="btn-affiliations">Affiliations</button>
+        <button id="btn-patrons">Patrons</button>
+        <button id="btn-synergies">Synergies</button>
       </div>
     </div>
   `);
+
+  document.getElementById("btn-champions").addEventListener("click", () => affichListe());
+  document.getElementById("btn-affiliations").addEventListener("click", () => affichAffiliationList());
+  document.getElementById("btn-patrons").addEventListener("click", () => affichPatronsList());
+  document.getElementById("btn-synergies").addEventListener("click", () => alert("En développement"));
 }
 
 // ===================== FILTRAGE & TRI =====================
-function filterAndSortPersos(filtresActuels) {
-  const query = normalizeString(filtresActuels.search);
+function filterAndSortPersos(filters) {
+  const query = normalizeString(filters.search);
 
-  let persosFiltres = listePersos.filter(p => {
-    const bancOk = filtresActuels.banc === "Tous" || p.Banc === filtresActuels.banc;
-    const classeOk = filtresActuels.classe === "Toutes" || (p.Classe || "").split(',').map(c => c.trim()).includes(filtresActuels.classe);
-    const roleOk = filtresActuels.role === "Tous" || (p.Rôles || "").split(',').map(r => r.trim()).includes(filtresActuels.role);
+  let filtered = listePersos.filter(p => {
+    const bancOk = filters.banc === "Tous" || p.Banc === filters.banc;
+    const classeOk = filters.classe === "Toutes" || (p.Classe || "").split(',').map(c => c.trim()).includes(filters.classe);
+    const roleOk = filters.role === "Tous" || (p.Rôles || "").split(',').map(r => r.trim()).includes(filters.role);
     const searchOk = !query || normalizeString(p.Nom).includes(query);
     return bancOk && classeOk && roleOk && searchOk;
   });
 
-  persosFiltres.sort((a, b) => {
-    if (filtresActuels.sort === "nom-asc") return a.Nom.localeCompare(b.Nom);
-    if (filtresActuels.sort === "nom-desc") return b.Nom.localeCompare(a.Nom);
-    if (filtresActuels.sort === "banc-asc") return (a.Banc || "").localeCompare(b.Banc || "", undefined, { numeric: true });
+  filtered.sort((a, b) => {
+    if (filters.sort === "nom-asc") return a.Nom.localeCompare(b.Nom);
+    if (filters.sort === "nom-desc") return b.Nom.localeCompare(a.Nom);
+    if (filters.sort === "banc-asc") return (a.Banc || "").localeCompare(b.Banc || "", undefined, { numeric: true });
     return 0;
   });
 
-  return persosFiltres;
+  return filtered;
 }
 
-// ===================== LISTE DES PERSONNAGES =====================
-function affichListe() {
-  renderPage(`
-    <a href="#" onclick="affichHome()" class="back-btn">⬅ Retour</a>
-    <h2>Liste des champions</h2>
-    ${renderFilters()}
-    <div id="cardsContainer" class="cards"></div>
-    <p id="noResultsMessage" class="no-results">Aucun personnage trouvé</p>
-    <div id="pagination" class="pagination"></div>
-  `);
-  updateList();
-
-  document.querySelectorAll(".card").forEach(card => {
-    card.addEventListener("click", () => {
-      const name = card.dataset.name;
-      affichPersoByName(name);
-    });
-  });
-}
-
-// ===================== LISTE DES AFFILIATIONS =====================
-function affichAffiliationList() {
-  // On récupère toutes les affiliations uniques depuis listePersos
-  let affiliationsUniques = [...new Set(listePersos
-    .map(p => p.Affiliation)
-    .filter(a => a && a.trim() !== ""))];
-
-  // On trie alphabétiquement mais "Aucun" passe en bas
-  affiliationsUniques.sort((a, b) => {
-    if (a === "Aucun") return 1;   // "Aucun" toujours après
-    if (b === "Aucun") return -1;  
-    return a.localeCompare(b);      // sinon tri classique
-  });
-
-  renderPage(`
-    <a href="#" onclick="affichHome()" class="back-btn">⬅ Retour</a>
-    <h2>Liste des Affiliations</h2>
-    <div class="affiliations-container">
-      ${affiliationsUniques.map(nom => `
-        <div class="affiliation-card" data-name="${nom}">
-          ${nom !== "Aucun" ? `
-            <img src="Affiliations/${normalizeString(nom)}.png" alt="${nom}" class="affiliation-logo">
-          ` : `
-            <div class="affiliation-logo affiliation-logo-placeholder"></div>
-          `}
-          <span${nom === "Aucun" ? ' style="color:#888; font-style:italic;"' : ''}>${nom}</span>
-        </div>
-      `).join('')}
-    </div>
-  `);
-
-  document.querySelectorAll(".affiliation-card").forEach(card => {
-    card.addEventListener("click", () => {
-      const name = card.dataset.name;
-      affichAffiliationByName(name);
-    });
-  });
-}
-
-// ===================== FICHE AFFILIATION =====================
-function affichAffiliationByName(name) {
-  renderPage(`
-    <a href="#" onclick="affichAffiliationList()" class="back-btn">⬅ Retour</a>
-    <h1>${name}</h1>
-
-    <div class="affiliation-members">
-      <div class="section-title">Champions liés</div>
-      <div class="linked-cards" id="linked-champions"></div>
-    </div>
-  `);
-
-  showLinkedChampionsForAffiliation(name);
-}
-
-// ===================== CHAMPIONS LIÉS À UNE AFFILIATION =====================
-function showLinkedChampionsForAffiliation(affiliationName) {
-  const container = document.getElementById("linked-champions");
-  container.innerHTML = "";
-
-  const championsLies = listePersos.filter(champion => champion.Affiliation === affiliationName);
-
-  if (championsLies.length === 0) {
-    container.innerHTML = `<p style="color:#aaa; font-style:italic;">Aucun champion lié</p>`;
-    return;
-  }
-
-  championsLies.forEach(champion => {
-    const card = document.createElement("div");
-    card.className = "linked-champion-card";
-
-    card.innerHTML = `
-      <img src="${champion.Image || 'Champions/default.jpg'}" 
-           alt="${champion.Nom}" 
-           title="${champion.Nom}"
-           class="linked-champion-img"
-           onerror="this.src='Champions/default.jpg'">
-      <div class="linked-champion-name">${champion.Nom}</div>
-    `;
-
-    // Clique sur le champion → ouvre sa fiche
-    card.addEventListener("click", () => {
-      affichPersoByName(champion.Nom);
-    });
-
-    container.appendChild(card);
-  });
-}
-
-// ===================== LISTE DES PATRONS =====================
-function affichPatronsList() {
-  renderPage(`
-    <a href="#" onclick="affichHome()" class="back-btn">⬅ Retour</a>
-    <h2>Liste des Patrons</h2>
-    <div class="patrons-container-large">
-      ${listePatrons.map(p => `
-        <div class="patron-card" data-name="${p.Nom}">
-          <img src="${p.Image}" alt="${p.Nom}" class="patron-img-large">
-          <span>${p.Nom}</span>
-        </div>
-      `).join('')}
-    </div>
-  `);
-
-  document.querySelectorAll(".patron-card").forEach(card => {
-    card.addEventListener("click", () => {
-      const name = card.dataset.name;
-      affichPatronByName(name);
-    });
-  });
-}
-
-// ===================== RENDER FILTERS =====================
-function renderFilters() {
-  return `
-    <div class="filters">
-      <div class="top-line">
-        ${renderSelect("Banc", "bancSelect", "Tous", listeBancs, "updateList()")}
-        ${renderSelect("Classe", "classeSelect", "Toutes", listeClasses, "updateList()")}
-        ${renderSelect("Rôle", "roleSelect", "Tous", listeRoles, "updateList()")}
-        ${renderSelect("Trier par", "sortSelect", null, [
-          { value: "banc-asc", label: "Banc croissant" },
-          { value: "nom-asc", label: "Nom A → Z" },
-          { value: "nom-desc", label: "Nom Z → A" }
-        ], "updateList()")}
-      </div>
-
-      <div class="bottom-line">
-        <div id="search-container">
-          <span>🔍</span>
-          <input type="text" id="searchInput" placeholder="Rechercher un personnage..." oninput="updateList()">
-        </div>
-        <div id="reset-container">
-          <button class="reset-btn" onclick="resetFilters()">⟳</button>
-        </div>
-      </div>
-    </div>
-  `;
-}
-
-function renderSelect(label, id, defaultValue, options, onChange) {
+// ===================== RENDER FILTER UI =====================
+function renderSelect(label, id, defaultValue, options) {
   const opts = options.map(opt => {
     if (typeof opt === "string") return `<option value="${opt}">${opt}</option>`;
     return `<option value="${opt.value}">${opt.label}</option>`;
   }).join("");
-
   return `
     <div class="filter-group">
       <label class="filter-label">${label}:</label>
-      <select id="${id}" onchange="${onChange}">
+      <select id="${id}">
         ${defaultValue ? `<option value="${defaultValue}">${defaultValue}</option>` : ""}
         ${opts}
       </select>
@@ -293,51 +142,105 @@ function renderSelect(label, id, defaultValue, options, onChange) {
   `;
 }
 
-// ===================== RESET FILTRES =====================
-function resetFilters() {
-  document.getElementById("bancSelect").value = "Tous";
-  document.getElementById("classeSelect").value = "Toutes";
-  document.getElementById("roleSelect").value = "Tous";
-  document.getElementById("searchInput").value = "";
-  document.getElementById("sortSelect").value = "banc-asc";
-  currentPage = 1;
-  updateList();
+function renderFilters() {
+  return `
+    <div class="filters">
+      <div class="top-line">
+        ${renderSelect("Banc", "bancSelect", "Tous", listeBancs)}
+        ${renderSelect("Classe", "classeSelect", "Toutes", listeClasses)}
+        ${renderSelect("Rôle", "roleSelect", "Tous", listeRoles)}
+        ${renderSelect("Trier par", "sortSelect", null, [
+          { value: "banc-asc", label: "Banc croissant" },
+          { value: "nom-asc", label: "Nom A → Z" },
+          { value: "nom-desc", label: "Nom Z → A" }
+        ])}
+      </div>
+
+      <div class="bottom-line">
+        <div id="search-container">
+          <span>🔍</span>
+          <input type="text" id="searchInput" placeholder="Rechercher un personnage...">
+        </div>
+        <div id="reset-container">
+          <button class="reset-btn" id="resetFiltersBtn">⟳</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Attach change/input handlers to filters after rendering
+function attachFilterHandlers() {
+  ["bancSelect", "classeSelect", "roleSelect", "sortSelect"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", () => { currentPage = 1; updateList(); });
+  });
+  const search = document.getElementById("searchInput");
+  if (search) search.addEventListener("input", () => { currentPage = 1; updateList(); });
+  const resetBtn = document.getElementById("resetFiltersBtn");
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    document.getElementById("bancSelect").value = "Tous";
+    document.getElementById("classeSelect").value = "Toutes";
+    document.getElementById("roleSelect").value = "Tous";
+    document.getElementById("searchInput").value = "";
+    document.getElementById("sortSelect").value = "banc-asc";
+    currentPage = 1;
+    updateList();
+  });
 }
 
 // ===================== LISTE & PAGINATION =====================
+function affichListe() {
+  renderPage(`
+    <a href="#" id="back-home" class="back-btn">⬅ Retour</a>
+    <h2>Liste des champions</h2>
+    ${renderFilters()}
+    <div id="cardsContainer" class="cards"></div>
+    <p id="noResultsMessage" class="no-results">Aucun personnage trouvé</p>
+    <div id="pagination" class="pagination"></div>
+  `);
+
+  document.getElementById("back-home").addEventListener("click", (e) => { e.preventDefault(); affichHome(); });
+
+  attachFilterHandlers();
+  updateList();
+}
+
 function updateList(page = currentPage) {
-  const filtresActuels = getCurrentFilters();
-  const persosFiltres = filterAndSortPersos(filtresActuels);
+  const filters = getCurrentFilters();
+  const filtered = filterAndSortPersos(filters);
 
   currentPage = page;
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const persosPage = persosFiltres.slice(startIndex, endIndex);
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  const pageItems = filtered.slice(start, start + ITEMS_PER_PAGE);
 
-  const cardsContainer = document.querySelector(".cards");
-  const noResultsMessage = document.getElementById("noResultsMessage");
+  const cardsContainer = document.getElementById("cardsContainer");
+  const noResultsMsg = document.getElementById("noResultsMessage");
 
-  if (persosFiltres.length === 0) {
-    noResultsMessage.style.display = "block";
+  if (!cardsContainer) return;
+
+  if (filtered.length === 0) {
+    noResultsMsg.style.display = "block";
     cardsContainer.innerHTML = "";
   } else {
-    noResultsMessage.style.display = "none";
-    cardsContainer.innerHTML = persosPage.map(p => `
-      <div class="card" onclick="affichPersoByName('${p.Nom.replace(/'/g,"\\'")}')">
-        ${p.Image ? `<img src="${p.Image}" alt="${p.Nom}" class="card-img">` : ""}
+    noResultsMsg.style.display = "none";
+    cardsContainer.innerHTML = pageItems.map(p => `
+      <div class="card" data-name="${p.Nom}">
+        ${p.Image || imageFor(p) ? `<img src="${imageFor(p)}" alt="${p.Nom}" class="card-img" onerror="this.onerror=null;this.src='Champions/default.jpg'">` : ""}
         <span class="card-name">${p.Nom}</span>
       </div>
     `).join("");
+    // attache des listeners sur les cartes
+    attachNameClickListeners(".card", name => affichPersoByName(name));
   }
 
-  affichPagination(persosFiltres);
+  renderPagination(filtered.length);
 }
 
-function affichPagination(filteredData) {
+function renderPagination(totalItems) {
   const paginationContainer = document.getElementById("pagination");
   paginationContainer.innerHTML = "";
-
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   if (totalPages <= 1) return;
 
   for (let i = 1; i <= totalPages; i++) {
@@ -349,6 +252,146 @@ function affichPagination(filteredData) {
   }
 }
 
+// ===================== AFFILIATIONS =====================
+function affichAffiliationList() {
+  const affiliationsUniques = [...new Set(listePersos.map(p => p.Affiliation).filter(a => a && a.trim() !== ""))];
+  affiliationsUniques.sort((a, b) => {
+    if (a === "Aucun") return 1;
+    if (b === "Aucun") return -1;
+    return a.localeCompare(b);
+  });
+
+  renderPage(`
+    <a href="#" id="back-home-aff" class="back-btn">⬅ Retour</a>
+    <h2>Liste des Affiliations</h2>
+    <div class="affiliations-container">
+      ${affiliationsUniques.map(nom => `
+        <div class="affiliation-card" data-name="${nom}">
+          ${nom !== "Aucun" ? `<img src="Affiliations/${normalizeString(nom)}.png" alt="${nom}" class="affiliation-logo" onerror="this.onerror=null;this.style.display='none'">` : `<div class="affiliation-logo affiliation-logo-placeholder"></div>`}
+          <span ${nom === "Aucun" ? 'style="color:#888; font-style:italic;"' : ''}>${nom}</span>
+        </div>
+      `).join('')}
+    </div>
+  `);
+
+  document.getElementById("back-home-aff").addEventListener("click", (e) => { e.preventDefault(); affichHome(); });
+
+  attachNameClickListeners(".affiliation-card", name => affichAffiliationByName(name));
+}
+
+function affichAffiliationByName(name) {
+  renderPage(`
+    <a href="#" id="back-aff" class="back-btn">⬅ Retour</a>
+    <h1>${name}</h1>
+    <div class="affiliation-members">
+      <div class="section-title">Champions liés</div>
+      <div class="linked-cards" id="linked-champions"></div>
+    </div>
+  `);
+
+  document.getElementById("back-aff").addEventListener("click", (e) => { e.preventDefault(); affichAffiliationList(); });
+
+  // montre les champions liés à l'affiliation
+  showLinkedChampions("#linked-champions", champion => champion.Affiliation === name);
+}
+
+// ===================== PATRONS & CHAMPIONS LIÉS (fonction générique) =====================
+// containerSelector : id or selector where cards will be appended
+// filterFn: function(champion) => boolean
+function showLinkedChampions(containerSelector, filterFn) {
+  const container = document.querySelector(containerSelector);
+  if (!container) return;
+  container.innerHTML = "";
+
+  const champions = listePersos.filter(filterFn);
+
+  if (champions.length === 0) {
+    container.innerHTML = `<p style="color:#aaa; font-style:italic;">Aucun champion lié</p>`;
+    return;
+  }
+
+  champions.forEach(champion => {
+    const card = document.createElement("div");
+    card.className = "linked-card";
+    card.dataset.name = champion.Nom;
+
+    const img = document.createElement("img");
+    img.src = imageFor(champion);
+    img.alt = champion.Nom;
+    img.title = champion.Nom;
+    img.className = "linked-champion-img";
+    img.onerror = function () { this.onerror = null; this.src = "Champions/default.jpg"; };
+
+    const nameSpan = document.createElement("span");
+    nameSpan.className = "linked-champion-name";
+    nameSpan.textContent = champion.Nom;
+
+    card.appendChild(img);
+    card.appendChild(nameSpan);
+    container.appendChild(card);
+  });
+
+  // attacher listener (clic ouvre la fiche)
+  attachNameClickListeners(`${containerSelector} .linked-card`, name => affichPersoByName(name));
+}
+
+// ===================== LISTE DES PATRONS =====================
+function affichPatronsList() {
+  renderPage(`
+    <a href="#" id="back-home-patrons" class="back-btn">⬅ Retour</a>
+    <h2>Liste des Patrons</h2>
+    <div class="patrons-container-large">
+      ${listePatrons.map(p => `
+        <div class="patron-card" data-name="${p.Nom}">
+          <img src="${p.Image || ''}" alt="${p.Nom}" class="patron-img-large" onerror="this.onerror=null;this.style.display='none'">
+          <span>${p.Nom}</span>
+        </div>
+      `).join('')}
+    </div>
+  `);
+
+  document.getElementById("back-home-patrons").addEventListener("click", (e) => { e.preventDefault(); affichHome(); });
+
+  attachNameClickListeners(".patron-card", name => affichPatronByName(name));
+}
+
+function affichPatronByName(name) {
+  const patron = listePatrons.find(p => p.Nom === name);
+  if (patron) affichPatron(patron);
+}
+
+function affichPatron(patron) {
+  renderPage(`
+    <a href="#" id="back-patron" class="back-btn">⬅ Retour</a>
+    <h1>${patron.Nom}</h1>
+
+    <div class="patron-fiche">
+      <div class="patron-top">
+        <img src="${patron.Image || ''}" alt="${patron.Nom}" class="perso-img-large" onerror="this.onerror=null;this.style.display='none'">
+        <div class="patron-constraints">
+          <div class="patron-constraints-title">Contraintes</div>
+          ${affichSectionFields(patron, ["Contraintes"])}
+        </div>
+      </div>
+
+      <div class="patron-description">
+        <div class="patron-constraints-title">Description</div>
+        ${affichSectionFields(patron, ["Description"])}
+      </div>
+
+      <div class="patron-champions">
+        <h3>Champions liés</h3>
+        <div class="linked-cards" id="linked-champions"></div>
+      </div>
+    </div>
+  `);
+
+  document.getElementById("back-patron").addEventListener("click", (e) => { e.preventDefault(); affichPatronsList(); });
+
+  // champs liés selon patron (colonne boolean TRUE)
+  showLinkedChampions("#linked-champions", champ => champ[patron.Nom] && champ[patron.Nom].toUpperCase() === "TRUE");
+}
+
 // ===================== FICHE PERSONNAGE =====================
 function affichPersoByName(name) {
   const perso = listePersos.find(p => p.Nom === name);
@@ -356,14 +399,14 @@ function affichPersoByName(name) {
 }
 
 function affichPerso(perso) {
-  const html = `
-    <a href="#" onclick="goBackToList()" class="back-btn">⬅ Retour</a>
+  renderPage(`
+    <a href="#" id="back-to-list" class="back-btn">⬅ Retour</a>
     <h1>${perso.Nom}</h1>
 
     <div class="fiche-top">
-      <img src="${perso.Image || ''}" alt="${perso.Nom}" class="perso-img-large">
+      <img src="${imageFor(perso)}" alt="${perso.Nom}" class="perso-img-large" onerror="this.onerror=null;this.src='Champions/default.jpg'">
       <div class="section-general-right">
-        ${affichSectionFields(perso, getFields("Général"))}
+        ${affichSectionFields(perso, ["Banc","Origine"])}
       </div>
     </div>
 
@@ -379,18 +422,18 @@ function affichPerso(perso) {
     <div class="fiche-container">
       <div class="fiche-left">
         <h3 class="section-title">Caractéristiques</h3>
-        ${affichSectionFields(perso, getFields("Caractéristiques"))}
+        ${affichSectionFields(perso, ["Force","Dextérité","Constitution","Intelligence","Sagesse","Charisme","Total"])}
       </div>
       <div class="fiche-right">
         <h3 class="section-title">Attaque</h3>
-        ${affichSectionFields(perso, getFields("Attaque"))}
+        ${affichSectionFields(perso, ["Type Attaque","Type Ultime"])}
         <h3 class="section-title">Patrons</h3>
-        ${affichSectionFields(perso, getFields("Patrons"))}
+        ${dispoPatrons(perso)}
       </div>
     </div>
-  `;
+  `);
 
-  document.getElementById("app").innerHTML = html;
+  document.getElementById("back-to-list").addEventListener("click", (e) => { e.preventDefault(); goBackToList(); });
 }
 
 function goBackToList() {
@@ -398,180 +441,109 @@ function goBackToList() {
   updateList(currentPage);
 }
 
-// ===================== SECTIONS PERSOS =====================
-function affichSectionFields(perso, fields, inline = false) {
-  const patronKeys = Object.keys(imagesPatrons);
-
-  if (fields.some(f => patronKeys.includes(f))) {
-    return dispoPatrons(perso);
-  }
-
+// ===================== RENDU DES CHAMPS =====================
+function affichSectionFields(item, fields, inline = false) {
   return fields.map(key => {
-    if (perso[key]) {
-      let values = perso[key].split(',').map(v => v.trim()).filter(Boolean);
-
-      if (key === "Description") {
-        values = values.map(v => v.replace(/\.\s*/g, '.<br>'));
-        values = [values.join(', ')];
-      }
-
-      return inline
-        ? `<div class="card-detail-inline"><strong>${key}:</strong> ${values.join(' / ')}</div>`
-        : `<div class="card-detail"><strong>${key}:</strong> ${values.join(' / ')}</div>`;
+    if (!item[key]) return "";
+    let values = item[key].split(',').map(v => v.trim()).filter(Boolean);
+    if (key === "Description") {
+      values = values.map(v => v.replace(/\.\s*/g, '.<br>'));
+      values = [values.join(', ')];
     }
-    return "";
+    return inline
+      ? `<div class="card-detail-inline"><strong>${key}:</strong> ${values.join(' / ')}</div>`
+      : `<div class="card-detail"><strong>${key}:</strong> ${values.join(' / ')}</div>`;
   }).join("");
 }
 
-function createPatronsColumn(perso, keys) {
+function createPatronsColumn(item, keys) {
   return keys.map(k => {
-    if (!perso[k]) return "";
-    const icon = perso[k].toUpperCase() === "TRUE" ? "🟢" : "⚪";
+    if (!item[k]) return "";
+    const icon = item[k].toUpperCase() === "TRUE" ? "🟢" : "⚪";
+    const imgSrc = imagesPatrons[k] || "";
     return `
-      <div>
-        <img src="${imagesPatrons[k]}" alt="${k}" class="patron-icon" onclick="affichPatronByName('${k}')">
+      <div class="patron-item">
+        ${imgSrc ? `<img src="${imgSrc}" alt="${k}" class="patron-icon" data-name="${k}" onerror="this.onerror=null;this.style.display='none'">` : `<div class="patron-icon-placeholder"></div>`}
         ${icon}
       </div>
     `;
   }).join("");
 }
 
-function dispoPatrons(perso) {
+function dispoPatrons(item) {
+  // deux colonnes (tu peux ajuster keys si tu veux un autre ordre)
   return `
     <div class="patrons-container">
-      <div class="patrons-column">${createPatronsColumn(perso, ["Mirt","Vajra","Strahd"])}</div>
-      <div class="patrons-column">${createPatronsColumn(perso, ["Zariel","Elminster"])}</div>
+      <div class="patrons-column">${createPatronsColumn(item, ["Mirt","Vajra","Strahd"])}</div>
+      <div class="patrons-column">${createPatronsColumn(item, ["Zariel","Elminster"])}</div>
     </div>
   `;
 }
 
-// ===================== FICHE PATRON =====================
-function affichPatronByName(name) {
-  const patron = listePatrons.find(p => p.Nom === name);
-  if (patron) affichPatron(patron);
-}
-
-function affichPatron(patron) {
-  const app = document.getElementById("app");
-
-  app.innerHTML = `
-    <a href="#" onclick="affichPatronsList()" class="back-btn">⬅ Retour</a>
-    <h1>${patron.Nom}</h1>
-
-    <div class="patron-fiche">
-      <div class="patron-top">
-        <img src="${patron.Image || ''}" alt="${patron.Nom}" class="perso-img-large">
-        <div class="patron-constraints">
-          <div class="patron-constraints-title">Contraintes</div>
-          ${affichSectionFields(patron, ["Contraintes"])}
-        </div>
-      </div>
-
-      <div class="patron-description">
-        <div class="patron-constraints-title">Description</div>
-        ${affichSectionFields(patron, ["Description"])}
-      </div>
-
-      <div class="patron-champions">
-        <h3>Champions liés</h3>
-        <div class="linked-cards" id="linked-champions">
-        </div>
-      </div>
-    </div>
-  `;
-
-  showLinkedChampions(patron);
-}
-
-function showLinkedChampions(patron) {
-  const container = document.getElementById("linked-champions");
-  container.innerHTML = "";
-
-  const patronKey = patron.Nom;
-
-  listePersos.forEach(champion => {
-    if (champion[patronKey] && champion[patronKey].toUpperCase() === "TRUE") {
-      const card = document.createElement("div");
-      card.className = "linked-card";
-
-      const img = document.createElement("img");
-      img.src = champion.Image || "Champions/default.jpg"; // fallback si pas d'image
-      img.alt = champion.Nom;
-      img.title = champion.Nom;
-      img.className = "linked-champion-img";
-
-      img.onclick = () => affichPersoByName(champion.Nom);
-
-      const nameSpan = document.createElement("span");
-      nameSpan.textContent = champion.Nom;
-      nameSpan.className = "linked-champion-name";
-
-      card.appendChild(img);
-      card.appendChild(nameSpan);
-
-      container.appendChild(card);
+// Attache listeners sur icônes patrons (ouvrir la fiche du patron)
+function attachPatronIconListeners() {
+  // icônes ont data-name (créées dans createPatronsColumn) : on utilise event delegation au parent #app
+  document.getElementById("app").addEventListener("click", (e) => {
+    const target = e.target;
+    if (target && target.classList.contains("patron-icon") && target.dataset.name) {
+      affichPatronByName(target.dataset.name);
     }
   });
-
-  if (container.innerHTML === "") {
-    container.innerHTML = `<p style="color:#aaa; font-style:italic;">Aucun champion lié</p>`;
-  }
 }
 
 // ===================== CHARGEMENT CSV =====================
-Papa.parse(csvUrl, {
+Papa.parse(CSV_URL, {
   download: true,
   header: true,
   complete: function(results) {
-    headersOrder = results.meta.fields;
     const merged = {};
 
     results.data
       .filter(row => row.Nom && row.Nom.trim())
       .forEach(row => {
         const name = row.Nom.trim();
-        row['Alignement'] = [row['Alignement Loyal Chaotique'], row['Alignement Bon Mauvais']].filter(Boolean).join(' / ');
-        delete row['Alignement Loyal Chaotique'];
-        delete row['Alignement Bon Mauvais'];
+        // Recompose l'alignement si colonnes séparées (si présentes)
+        if ('Alignement Loyal Chaotique' in row || 'Alignement Bon Mauvais' in row) {
+          row['Alignement'] = [row['Alignement Loyal Chaotique'], row['Alignement Bon Mauvais']].filter(Boolean).join(' / ');
+          delete row['Alignement Loyal Chaotique'];
+          delete row['Alignement Bon Mauvais'];
+        }
 
         if (!merged[name]) {
           merged[name] = { ...row };
         } else {
           for (let key in row) {
-            if (key !== 'Nom' && key !== 'Image' && row[key]) {
-              const existing = merged[name][key]?.split(',').map(v => v.trim()) || [];
-              const additions = row[key].split(',').map(v => v.trim());
-              merged[name][key] = [...new Set([...existing, ...additions])].join(', ');
-            }
+            if (key === 'Nom' || key === 'Image') continue;
+            if (!row[key]) continue;
+            const existing = (merged[name][key] || "").split(',').map(v => v.trim()).filter(Boolean);
+            const additions = row[key].split(',').map(v => v.trim()).filter(Boolean);
+            merged[name][key] = [...new Set([...existing, ...additions])].join(', ');
           }
           if (!merged[name].Image && row.Image) merged[name].Image = row.Image;
         }
       });
 
     listePersos = Object.values(merged).map(p => {
-        if (!p.Image) {
-          const normalizedName = normalizeString(p.Nom);
-          p.Image = `Champions/${normalizedName}.jpg`;
-        }
-        return p;
+      if (!p.Image) p.Image = `Champions/${normalizeString(p.Nom)}.jpg`;
+      return p;
     });
-    
-    listeBancs = [...new Set(listePersos.map(p => p.Banc).filter(Boolean))].sort((a, b) => Number(a) - Number(b));
+
+    listeBancs = [...new Set(listePersos.map(p => p.Banc).filter(Boolean))].sort((a,b) => Number(a) - Number(b));
     listeClasses = [...new Set(listePersos.flatMap(p => (p.Classe || "").split(',').map(c => c.trim()).filter(Boolean)))].sort();
     listeRoles = [...new Set(listePersos.flatMap(p => (p.Rôles || "").split(',').map(r => r.trim()).filter(Boolean)))].sort();
 
+    // on attache le listener global pour les icônes patrons (détection dynamique)
+    attachPatronIconListeners();
+
+    // affiche l'accueil
     affichHome();
   }
 });
 
-Papa.parse(csvUrlPatrons, {
+Papa.parse(CSV_URL_PATRONS, {
   download: true,
   header: true,
   complete: function(results) {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
-
-
-
-
