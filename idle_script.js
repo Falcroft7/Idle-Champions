@@ -12,15 +12,6 @@ let listeClasses = [];
 let listeRoles = [];
 let currentPage = 1;
 
-const PATRONS = ["Mirt", "Vajra", "Strahd", "Zariel", "Elminster"];
-const imagesPatrons = {
-  Mirt: "Patrons/Mirt.jfif",
-  Vajra: "Patrons/Vajra.jfif",
-  Strahd: "Patrons/Strahd.jfif",
-  Zariel: "Patrons/Zariel.jfif",
-  Elminster: "Patrons/Elminster.jfif",
-};
-
 const sectionsFiche = [
   { title: "Général", fields: ["Banc", "Origine"] },
   { title: "Identité", fields: ["Genre", "Espèce", "Age"] },
@@ -448,16 +439,19 @@ function affichSectionFields(item, fields, inline = false) {
 
 function createPatronsColumn(perso, keys) {
   return keys.map(k => {
-      const hasPatron = perso[k] && perso[k].toUpperCase() === "TRUE";
-      return `
-        <div class="patrons-row">
-          <img src="${imagesPatrons[k]}" alt="${k}" class="patron-icon"
-               onclick="affichPatronByName('${k}')">
-          <span>${hasPatron ? "🟢" : "⚪"}</span>
-        </div>
-      `;
-    })
-    .join("");
+    const patron = listePatrons.find(p => p.Nom === k);
+    if (!patron) return "";
+
+    const hasPatron = perso[k] && perso[k].toUpperCase() === "TRUE";
+
+    return `
+      <div class="patrons-row">
+        <img src="${patron.Image}" alt="${k}" class="patron-icon"
+             onclick="affichPatronByName('${k}')">
+        <span>${hasPatron ? "🟢" : "⚪"}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function dispoPatrons(perso) {
@@ -535,4 +529,5 @@ Papa.parse(CSV_URL_PATRONS, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
