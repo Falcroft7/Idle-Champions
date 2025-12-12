@@ -1,33 +1,63 @@
-import { normalizeString } from "./utils.js";
-import { listePersos } from "./state.js";
+import { currentPage, ITEMS_PER_PAGE } from "./state.js";
 
-export function getCurrentFilters() {
-  return {
-    banc: document.getElementById("bancSelect")?.value || "Tous",
-    classe: document.getElementById("classeSelect")?.value || "Toutes",
-    role: document.getElementById("roleSelect")?.value || "Tous",
-    search: document.getElementById("searchInput")?.value || "",
-    sort: document.getElementById("sortSelect")?.value || "banc-asc"
-  };
+export function renderSelect(label, id, defaultValue, options) {
+  const opts = options.map(opt => {
+    if (typeof opt === "string") return `<option value="${opt}">${opt}</option>`;
+    return `<option value="${opt.value}">${opt.label}</option>`;
+  }).join("");
+
+  return `
+    <div class="filter-group">
+      <label class="filter-label">${label}:</label>
+      <select id="${id}">
+        ${defaultValue ? `<option value="${defaultValue}">${defaultValue}</option>` : ""}
+        ${opts}
+      </select>
+    </div>
+  `;
 }
 
-export function filterAndSortPersos(filters) {
-  const query = normalizeString(filters.search);
+export function renderFilters(listeBancs, listeClasses, listeRoles) {
+  return `
+    <div class="filters">
+      <div class="top-line">
+        ${renderSelect("Banc", "bancSelect", "Tous", listeBancs)}
+        ${renderSelect("Classe", "classeSelect", "Toutes", listeClasses)}
+        ${renderSelect("Rôle", "roleSelect", "Tous", listeRoles)}
+        ${renderSelect("Trier par", "sortSelect", null, [
+          { value: "banc-asc", label: "Banc croissant" },
+          { value: "nom-asc", label: "Nom A → Z" },
+          { value: "nom-desc", label: "Nom Z → A" }
+        ])}
+      </div>
+      <div class="bottom-line">
+        <div id="search-container">
+          <span>🔍</span>
+          <input type="text" id="searchInput" placeholder="Rechercher un personnage...">
+        </div>
+        <div id="reset-container">
+          <button class="reset-btn" id="resetFiltersBtn">⟳</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
-  let filtered = listePersos.filter(p => {
-    const bancOk = filters.banc === "Tous" || p.Banc === filters.banc;
-    const classeOk = filters.classe === "Toutes" || (p.Classe || "").split(',').map(c => c.trim()).includes(filters.classe);
-    const roleOk = filters.role === "Tous" || (p.Rôles || "").split(',').map(r => r.trim()).includes(filters.role);
-    const searchOk = !query || normalizeString(p.Nom).includes(query);
-    return bancOk && classeOk && roleOk && searchOk;
+export function attachFilterHandlers(updateList) {
+  ["bancSelect", "classeSelect", "roleSelect", "sortSelect"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener("change", () => { currentPage = 1; updateList(); });
   });
-
-  filtered.sort((a, b) => {
-    if (filters.sort === "nom-asc") return a.Nom.localeCompare(b.Nom);
-    if (filters.sort === "nom-desc") return b.Nom.localeCompare(a.Nom);
-    if (filters.sort === "banc-asc") return (a.Banc || "").localeCompare(b.Banc || "", undefined, { numeric: true });
-    return 0;
+  const search = document.getElementById("searchInput");
+  if (search) search.addEventListener("input", () => { currentPage = 1; updateList(); });
+  const resetBtn = document.getElementById("resetFiltersBtn");
+  if (resetBtn) resetBtn.addEventListener("click", () => {
+    document.getElementById("bancSelect").value = "Tous";
+    document.getElementById("classeSelect").value = "Toutes";
+    document.getElementById("roleSelect").value = "Tous";
+    document.getElementById("searchInput").value = "";
+    document.getElementById("sortSelect").value = "banc-asc";
+    currentPage = 1;
+    updateList();
   });
-
-  return filtered;
 }
