@@ -205,11 +205,11 @@ function showLinkedChampionsForAffiliation(affiliationName) {
     card.className = "linked-champion-card";
 
     card.innerHTML = `
-      <img src="${champion.Image || 'images/champions/default.png'}" 
+      <img src="${champion.Image || 'Champions/default.png'}" 
            alt="${champion.Nom}" 
            title="${champion.Nom}"
            class="linked-champion-img"
-           onerror="this.src='images/champions/default.png'">
+           onerror="this.src='Champions/default.png'">
       <div class="linked-champion-name">${champion.Nom}</div>
     `;
 
@@ -492,7 +492,7 @@ function showLinkedChampions(patron) {
       card.className = "linked-card";
 
       const img = document.createElement("img");
-      img.src = champion.Image || "images/champions/default.png"; // fallback si pas d'image
+      img.src = champion.Image || "Champions/default.png"; // fallback si pas d'image
       img.alt = champion.Nom;
       img.title = champion.Nom;
       img.className = "linked-champion-img";
@@ -562,6 +562,7 @@ Papa.parse(csvUrlPatrons, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
