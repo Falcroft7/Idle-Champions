@@ -22,14 +22,10 @@ const sectionsFiche = [
 
 // ===================== UTILITAIRES =====================
 function normalizeString(str) {
-  if (!str) return "";
-  
-  return str
+  return (str || "")
     .toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")     // remplace les espaces par des tirets
-    .replace(/[^\w-]/g, "");  // supprime tout sauf lettres, chiffres et tirets
+    .replace(/[\s.-]/g, "");
 }
 
 function getCurrentFilters() {
@@ -533,6 +529,7 @@ Papa.parse(CSV_URL_PATRONS, {
     listePatrons = results.data.filter(p => p.Nom && p.Nom.trim());
   }
 });
+
 
 
 
