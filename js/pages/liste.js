@@ -36,3 +36,46 @@ export function updateList(page = 1) {
 
   attachNameClickListeners(".card", name => affichPersoByName(name));
 }
+
+export function renderPagination(totalItems) {
+  const paginationContainer = document.getElementById("pagination");
+  paginationContainer.innerHTML = "";
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  if (totalPages <= 1) return;
+
+  for (let i = 1; i <= totalPages; i++) {
+    const btn = document.createElement("button");
+    btn.textContent = i;
+    if (i === currentPage) btn.classList.add("active");
+    btn.addEventListener("click", () => updateList(i));
+    paginationContainer.appendChild(btn);
+  }
+}
+
+
+export function renderFilters() {
+  return `
+    <div class="filters">
+      <div class="top-line">
+        ${renderSelect("Banc", "bancSelect", "Tous", listeBancs)}
+        ${renderSelect("Classe", "classeSelect", "Toutes", listeClasses)}
+        ${renderSelect("Rôle", "roleSelect", "Tous", listeRoles)}
+        ${renderSelect("Trier par", "sortSelect", null, [
+          { value: "banc-asc", label: "Banc croissant" },
+          { value: "nom-asc", label: "Nom A → Z" },
+          { value: "nom-desc", label: "Nom Z → A" }
+        ])}
+      </div>
+
+      <div class="bottom-line">
+        <div id="search-container">
+          <span>🔍</span>
+          <input type="text" id="searchInput" placeholder="Rechercher un personnage...">
+        </div>
+        <div id="reset-container">
+          <button class="reset-btn" id="resetFiltersBtn">⟳</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
